@@ -140,6 +140,13 @@ class Board(object):
                 if self[neighbour] == BLANK:
                     self.frontier.add(neighbour)
 
+    def remove(self, index, frontier):
+        assert self[index] > 0, f"Error occurs trying to remove at {index}\n" \
+                                 f"{pprint.pformat(self.board)}"
+        x, y = index
+        self.board[x][y] = BLANK
+        self.frontier = frontier
+
     def utility(self, p):
         s = self._toString()
         val = 0
@@ -292,7 +299,7 @@ class AIPlayer(object):
             # print(_, index)
             moveVal, moveAction = self.minValue(boardCopy, alpha, beta, depth + 1)
 
-            if moveVal >= val:
+            if moveVal > val:
                 val = moveVal
                 action = index
 
@@ -416,8 +423,7 @@ if __name__ == "__main__":
     # print(t_util, t_numpy, t_tostring)
     # # # FIXME: Deepcopy is too expensive
     board = Board(20, 20)
-    board.loadJson('C:/Users/Daniel/Desktop/Daniel/projects/FDU-Gomoku-Bot/code/Ver.beta/tmp/pbrain-pydan1.json')
+    board.loadJson('C:/Users/Daniel/Desktop/Daniel/projects/Gomoku/code/alpha-beta pruning/tmp/pbrain-pydan1.json')
     print(board)
-
     ai = AIPlayer()
     print(ai.getMove(board))

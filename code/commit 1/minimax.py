@@ -116,7 +116,7 @@ if DEBUG_EVAL:
 # an example of problematic function
 def brain_turn():
     try:
-        myBoard = Board(board=board, k=2)
+        myBoard = Board(board=board, k=1)
         ai = AIPlayer()
         x, y = ai.getMove(myBoard)
         pp.do_mymove(x, y)

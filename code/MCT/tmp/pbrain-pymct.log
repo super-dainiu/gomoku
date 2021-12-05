@@ -1,0 +1,5 @@
+Traceback (most recent call last):
+  File "mct.py", line 158, in main
+  File "pisqpipe.py", line 345, in main
+  File "pisqpipe.py", line 291, in do_command
+SystemExit: 0
