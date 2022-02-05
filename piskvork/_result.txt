@@ -1,0 +1,75 @@
+-------------------------------------
+2021/12/19  20:09 - 2021/12/20  0:42
+Time for turn: 15 s,   Time for match: 90 s
+Tolerance: 1 s,   Memory: 512 MB
+Openings: start from 1, used 3, available 3
+Rule: five or more stones wins
+Opening CRC: 225e690c
+Games played: 468
+-------------------------------------
+
+YIXIN18
+wins: 71=35+33+3,   losses: 1=0+1
+time/turn: 676 ms (max: 10.5 s),  time/game: 11 s
+moves/game: 17,  CRC: 3e91a5cb,   memory: 253.11 MB
+
+WINE18
+wins: 67=33+31+3,   losses: 5=2+3
+time/turn: 1274 ms (max: 13.1 s),  time/game: 23 s
+moves/game: 18,  CRC: e4a4dcaf,   memory: 196.13 MB
+
+pela
+wins: 57=27+25+5,   losses: 15=6+9
+time/turn: 1963 ms (max: 12.9 s),  time/game: 38 s
+moves/game: 19,  CRC: e0fe74ed,   memory: 5.14 MB
+
+ZETOR17
+wins: 48=21+21+6,   losses: 24=11+12+1
+time/turn: 1368 ms (max: 14.2 s),  time/game: 26 s
+moves/game: 19,  CRC: 7bc0a4b6,   memory: 13.71 MB
+
+pyzobrist
+wins: 46=22+22+2,   losses: 26=14+12
+time/turn: 766 ms (max: 11.1 s),  time/game: 13 s
+moves/game: 18,  CRC: 2979a6a6,   memory: 3.88 MB
+
+SPARKLE
+wins: 39=17+19+3,   losses: 33=18+15
+time/turn: 606 ms (max: 4.4 s),  time/game: 12 s
+moves/game: 20,  CRC: d2cf4bd1,   memory: 56.70 MB
+
+EULRING16
+wins: 34=17+17,   losses: 38=6+6+26
+time/turn: 4384 ms (max: 18.9 s),  time/game: 63 s
+moves/game: 14,  CRC: 6f6db047,   memory: 10.79 MB
+
+NOESIS04
+wins: 34=16+17+1,   losses: 38=20+18
+time/turn: 337 ms (max: 3.7 s),  time/game: 6 s
+moves/game: 18,  CRC: 6bc58455,   memory: 10.59 MB
+
+PISQ04
+wins: 23=10+11+2,   losses: 49=25+24
+time/turn: 79 ms (max: 10.1 s),  time/game: 1 s
+moves/game: 18,  CRC: 3296035b,   memory: 8.51 MB
+
+VALKYRIE13
+wins: 16=5+9+2,   losses: 56=29+27
+time/turn: 116 ms (max: 0.5 s),  time/game: 1 s
+moves/game: 15,  CRC: af41c137,   memory: 4.07 MB
+
+PUREROCKY16
+wins: 15=6+8+1,   losses: 57=29+28
+time/turn: 396 ms (max: 12.0 s),  time/game: 7 s
+moves/game: 18,  CRC: 2e8bb224,   memory: 16.78 MB
+
+FIVEROW08
+wins: 13=5+6+2,   losses: 59=28+28+3
+time/turn: 172 ms (max: 12.1 s),  time/game: 2 s
+moves/game: 15,  CRC: e4047021,   memory: 3.95 MB
+
+mushroom
+wins: 5=4+1,   losses: 67=32+35
+time/turn: 371 ms (max: 1.0 s),  time/game: 3 s
+moves/game: 10,  CRC: 2c542fb8,   memory: 52.12 MB
+

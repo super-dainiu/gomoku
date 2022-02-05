@@ -1,7 +1,7 @@
 import json
 import pprint
 import re
-import timeit
+import time
 import copy
 import math
 
@@ -10,34 +10,137 @@ BLANK = 0
 P1 = 1
 P2 = 2
 
-KILLS_P1 = [
-    (re.compile(r"11111"), float('inf'), float('inf'))
-]
+PENALTY = 1.5
+DISCOUNT1 = 1
+DISCOUNT2 = 0.9
+DISCOUNT3 = 0.1
+
+SCORE = {
+    # Winning Threats
+    "FIVE": 100000,                 # ooooo
+    "OPEN_FOUR": 10000,             # _oooo_
+    # Forcing Threats
+    "SIMPLE_FOUR": 1000,            # xoooo_ / oo_oo / ooo_o
+    "OPEN_THREE": 1000,             # __ooo__
+    "SIMPLE_THREE": 900,            # _oo_o_ / x_ooo__
+    "COMPENSATION": 630,            # o_o_o_o_o -> 3 * o_o_o + 630 = 1000
+    # Potential Threats
+    "OPEN_TWO": 100,                # __oo__ / __o_o__
+    "BROKEN_THREE": 90,             # xooo__ / xoo_o_ / xo_oo_ / x_ooo_x / o_o_o
+    "SIMPLE_TWO": 90,               # x_oo__ / x_o_o__
+}
+
+# THREATS_P1 = [
+#     (re.compile(r'11111'), SCORE['FIVE'], SCORE['FIVE']),
+#     (re.compile(r'011110'), SCORE['OPEN_FOUR'], SCORE['OPEN_FOUR']),
+#     (re.compile(r'211110|011112|11011|11101|10111'), SCORE['SIMPLE_FOUR'], SCORE['SIMPLE_FOUR']),
+#     (re.compile(r'0011100'), SCORE['OPEN_THREE'], SCORE['OPEN_THREE']),
+#     (re.compile(r'011010|010110|2011100|0011102'), SCORE['SIMPLE_THREE'], SCORE['SIMPLE_THREE']),
+#     (re.compile(r'101010101'), SCORE['COMPENSATION'], SCORE['COMPENSATION']),
+#     (re.compile(r'001100|0010100'), SCORE['OPEN_TWO'], SCORE['OPEN_TWO']),
+#     (re.compile(r'211100|001112|211010|010112|210110|011012|2011102|10101'), SCORE['BROKEN_THREE'], SCORE['BROKEN_THREE']),
+#     (re.compile(r'201100|001102|2010100|0010102'), SCORE['SIMPLE_TWO'], SCORE['SIMPLE_TWO'])
+# ]
+#
+# THREATS_P2 = [
+#     (re.compile(r'22222'), SCORE['FIVE'], SCORE['FIVE']),
+#     (re.compile(r'022220'), SCORE['OPEN_FOUR'], SCORE['OPEN_FOUR']),
+#     (re.compile(r'122220|022221|22022|22202|20222'), SCORE['SIMPLE_FOUR'], SCORE['SIMPLE_FOUR']),
+#     (re.compile(r'0022200'), SCORE['OPEN_THREE'], SCORE['OPEN_THREE']),
+#     (re.compile(r'022020|020220|1022200|0022201'), SCORE['SIMPLE_THREE'], SCORE['SIMPLE_THREE']),
+#     (re.compile(r'202020202'), SCORE['COMPENSATION'], SCORE['COMPENSATION']),
+#     (re.compile(r'002200|0020200'), SCORE['OPEN_TWO'], SCORE['OPEN_TWO']),
+#     (re.compile(r'122200|002221|122020|020221|120220|022021|1022201|20202'), SCORE['BROKEN_THREE'], SCORE['BROKEN_THREE']),
+#     (re.compile(r'102200|002201|1020200|0020201'), SCORE['SIMPLE_TWO'], SCORE['SIMPLE_TWO']),
+# ]
+
 THREATS_P1 = [
-    (re.compile(r"011110"), float('inf'), float('inf')),
-    (re.compile(r"211110|011112"), 50, float('inf')),
-    (re.compile(r"0011102|2011100|0011100"), 30, float('inf')),
-    (re.compile(r"010110|011010"), 40, float('inf')),
-]
-VAL_P1 = [
-    (re.compile(r"01110"), 8, 20),
-    (re.compile(r'0110'), 2, 4)
+    (re.compile(r"11111"), 1000000, 1000000*DISCOUNT3),
+    (re.compile(r"011110"), 100000, 100000*DISCOUNT3),
+    (re.compile(r"211110|011112|11011|11101|10111"), 1000, 1000*DISCOUNT3),
+    (re.compile(r"0011100|010110|011010"), 1000, 1000*DISCOUNT3),
+    (re.compile(r"2011100|0011102"), 1000*DISCOUNT1, 1000*DISCOUNT1*DISCOUNT3),
+    (re.compile(r"001100"), 100, 100*DISCOUNT3),
+    (re.compile(r"211010|010112|210110|011012|0010100|211100|001112|10101"), 100*DISCOUNT2, 100*DISCOUNT2*DISCOUNT3),
+    (re.compile(r"201100|001102|2011102"), 100*DISCOUNT2*DISCOUNT2, 100*DISCOUNT2*DISCOUNT2*DISCOUNT3),
+    (re.compile(r"2010100|0010102"), 10, 10*DISCOUNT3),
+    (re.compile(r"2010102"), 10*DISCOUNT2, 10*DISCOUNT2*DISCOUNT3)
 ]
 
-KILLS_P2 = [
-    (re.compile(r"22222"), float('-inf'), float('-inf'))
-]
 THREATS_P2 = [
-    (re.compile(r"022220"), float('-inf'), float('-inf')),
-    (re.compile(r"122220|022221"), float('-inf'), -50),
-    (re.compile(r"0022201|1022200|0022200"), float('-inf'), -30),
-    (re.compile(r"020220|022020"), float('-inf'), -40),
-]
-VAL_P2 = [
-    (re.compile(r"02220"), -20, -8),
-    (re.compile(r'0220'), -4, -2)
+    (re.compile(r"22222"), -1000000*PENALTY*DISCOUNT3, -1000000*PENALTY),
+    (re.compile(r"022220"), -100000*PENALTY*DISCOUNT3, -100000*PENALTY),
+    (re.compile(r"122220|022221|22022|22202|20222"), -1000*PENALTY*DISCOUNT3, -1000*PENALTY),
+    (re.compile(r"020220|022020|0022200"), -1000*PENALTY*DISCOUNT3, -1000*PENALTY),
+    (re.compile(r"1022200|0022201"), -1000*DISCOUNT1*PENALTY*DISCOUNT3, -1000*DISCOUNT1*PENALTY),
+    (re.compile(r"002200"), -100*DISCOUNT3, -100),
+    (re.compile(r"122020|020221|120220|022021|0020200|122200|002221|20202"), -100*DISCOUNT2*DISCOUNT3, -100*DISCOUNT2),
+    (re.compile(r"102200|002201|1022201"), -100*DISCOUNT2*DISCOUNT2*DISCOUNT3, -100*DISCOUNT2*DISCOUNT2),
+    (re.compile(r"1020200|0020201"), -10*DISCOUNT3, -10),
+    (re.compile(r"1020201"), -10*DISCOUNT2*DISCOUNT3, -10*DISCOUNT2)
 ]
 
+
+# THREATS_P1 = [
+#     (re.compile(r"11111"), 1000000, 1000000),
+#     (re.compile(r"011110"), 10000, 10000),
+#     (re.compile(r"211110|011112|11011|11101|10111"), 1000, 1000*DISCOUNT3),
+#     (re.compile(r"0011100"), 1000, 1000*DISCOUNT3),
+#     (re.compile(r"010110|011010|2011100|0011102"), 1000*DISCOUNT1, 1000*DISCOUNT1*DISCOUNT3),
+#     (re.compile(r"0010100|211100|001112|10101"), 100*DISCOUNT2, 100*DISCOUNT2*DISCOUNT3),
+# ]
+#
+# THREATS_P2 = [
+#     (re.compile(r"22222"), -1000000*PENALTY, -1000000*PENALTY),
+#     (re.compile(r"022220"), -10000*PENALTY, -10000*PENALTY),
+#     (re.compile(r"122220|022221|22022|22202|20222"), -1000*DISCOUNT3*PENALTY, -1000*PENALTY),
+#     (re.compile(r"0022200"), -1000*DISCOUNT3*PENALTY, -1000*PENALTY),
+#     (re.compile(r"020220|022020|1022200|0022201"), -1000*DISCOUNT1*DISCOUNT3*PENALTY, -1000*DISCOUNT1*PENALTY),
+#     (re.compile(r"002200"), -100, -100*DISCOUNT3),
+#     (re.compile(r"0020200|122200|002221|20202"), -100*DISCOUNT2*DISCOUNT3, -100*DISCOUNT2),
+#     (re.compile(r"122020|020221|120220|022021|102200|002201|1022201"), -100*DISCOUNT2*DISCOUNT2*DISCOUNT3, -100*DISCOUNT2*DISCOUNT2),
+# ]
+
+
+# THREATS_P1 = [
+#     (re.compile(r"11111"), 1000000, 1000000, None, None, 0),
+#     (re.compile(r"011110"), 10000, 10000, (0, 5), (0, 5), '1killing'),
+#     (re.compile(r"211110"), 1000, 1000*DISCOUNT3, 5, 5, '1killing'),
+#     (re.compile(r"011112"), 1000, 1000*DISCOUNT3, 0, 0, '1killing'),
+#     (re.compile(r"11011"), 1000, 1000*DISCOUNT3, 2, 2, '1killing'),
+#     (re.compile(r"11101"), 1000, 1000*DISCOUNT3, 3, 3, '1killing'),
+#     (re.compile(r"10111"), 1000, 1000*DISCOUNT3, 1, 1, '1killing'),
+#     (re.compile(r"0011100"), 1000, 1000*DISCOUNT3, 1, 5, '1challenging'),
+#     (re.compile(r"010110"), 1000*DISCOUNT1, 1000 * DISCOUNT1 * DISCOUNT3, 2, (0, 2, 5), '1challenging'),
+#     (re.compile(r"011010"), 1000 * DISCOUNT1, 1000 * DISCOUNT1 * DISCOUNT3, 3, (0, 3, 5), '1challenging'),
+#     (re.compile(r"2011100"), 1000 * DISCOUNT1, 1000 * DISCOUNT1 * DISCOUNT3, 5, (1, 5, 6), '1challenging'),
+#     (re.compile(r"0011102"), 1000 * DISCOUNT1, 1000 * DISCOUNT1 * DISCOUNT3, 1, (0, 1, 5), '1challenging'),
+#     (re.compile(r"001100"), 100, 100*DISCOUNT3, None, None, 0),
+#     (re.compile(r"0010100|211100|001112|10101"), 100*DISCOUNT2, 100*DISCOUNT2*DISCOUNT3, None, None, 0),
+#     (re.compile(r"211010|010112|210110|011012|201100|001102|2011102"), 100*DISCOUNT2*DISCOUNT2, 100*DISCOUNT2*DISCOUNT2*DISCOUNT3, None, None, 0),
+#     (re.compile(r"2010100|0010102"), 10, 10*DISCOUNT3, None, None, 0),
+#     (re.compile(r"2010102"), 10*DISCOUNT2, 10*DISCOUNT2*DISCOUNT3, None, None, 0)
+# ]
+#
+# THREATS_P2 = [
+#     (re.compile(r"22222"), -1000000*PENALTY, -1000000*PENALTY, None, None, 0),
+#     (re.compile(r"022220"), -10000*PENALTY, -10000*PENALTY, (0, 5), (0, 5), '2killing'),
+#     (re.compile(r"122220"), -1000*DISCOUNT3*PENALTY, -1000*PENALTY, 5, 5, '2killing'),
+#     (re.compile(r"022221"), -1000 * DISCOUNT3 * PENALTY, -1000 * PENALTY, 0, 0, '2killing'),
+#     (re.compile(r"22022"), -1000 * DISCOUNT3 * PENALTY, -1000 * PENALTY, 2, 2, '2killing'),
+#     (re.compile(r"22202"), -1000 * DISCOUNT3 * PENALTY, -1000 * PENALTY, 3, 3, '2killing'),
+#     (re.compile(r"20222"), -1000 * DISCOUNT3 * PENALTY, -1000 * PENALTY, 1, 1, '2killing'),
+#     (re.compile(r"0022200"), -1000*DISCOUNT3*PENALTY, -1000*PENALTY, 1, 5, '2challenging'),
+#     (re.compile(r"020220"), -1000*DISCOUNT1*DISCOUNT3*PENALTY, -1000*DISCOUNT1*PENALTY, 2, (0, 2, 5), '2challenging'),
+#     (re.compile(r"022020"), -1000 * DISCOUNT1 * DISCOUNT3 * PENALTY, -1000 * DISCOUNT1 * PENALTY, 3, (0, 3, 5), '2challenging'),
+#     (re.compile(r"1022200"), -1000 * DISCOUNT1 * DISCOUNT3 * PENALTY, -1000 * DISCOUNT1 * PENALTY, 5, (1, 5, 6), '2challenging'),
+#     (re.compile(r"0022201"), -1000 * DISCOUNT1 * DISCOUNT3 * PENALTY, -1000 * DISCOUNT1 * PENALTY, 1, (0, 1, 5), '2challenging'),
+#     (re.compile(r"002200"), -100, -100*DISCOUNT3, None, None, 0),
+#     (re.compile(r"0020200|122200|002221|20202"), -100*DISCOUNT2*DISCOUNT3, -100*DISCOUNT2, None, None, 0),
+#     (re.compile(r"122020|020221|120220|022021|102200|002201|1022201"), -100*DISCOUNT2*DISCOUNT2*DISCOUNT3, -100*DISCOUNT2*DISCOUNT2, None, None, 0),
+#     (re.compile(r"1020200|0020201"), -10*DISCOUNT3, -10, None, None, 0),
+#     (re.compile(r"1020201"), -10*DISCOUNT2*DISCOUNT3, -10*DISCOUNT2, None, None, 0)
+# ]
 
 def kNN(x, y, k):
     yield x + k, y + k
@@ -51,7 +154,7 @@ def kNN(x, y, k):
 
 
 class Board(object):
-    def __init__(self, width=0, height=0, k=1, board=None):  # k: kNN
+    def __init__(self, width=0, height=0, k=2, board=None):  # k: kNN
 
         self.k = k
         self.frontier = set()
@@ -74,6 +177,9 @@ class Board(object):
             self.height = height
             assert self.width > 0 and self.height > 0, f'Width and height should be positive'
             self.board = [[0 for _ in range(self.width)] for _ in range(self.height)]
+
+        self.value = self._utility()
+        self.threat = {'1killing': None, '1challenging': None, '2killing': None, '2challenging': None}
 
     def __repr__(self):
         self._display()
@@ -115,63 +221,42 @@ class Board(object):
         x, y = index
         self.board[x][y] = P1
 
-        if (x, y) in self.frontier:
-            self.frontier.remove((x, y))
-        for i in range(1, self.k + 1):
-            for neighbour in kNN(x, y, i):
-                if self[neighbour] == BLANK:
-                    self.frontier.add(neighbour)
-
     def addP2(self, index):
         """
         If the addition is temporary, we have to copy the previous frontier.
         If the addition is permanent, then do it without a copy.
         """
-        assert self[index] == 0, f"Error occurs trying to play P1 at {index}\n" \
+        assert self[index] == 0, f"Error occurs trying to play P2 at {index}\n" \
                                  f"{pprint.pformat(self.board)}"
 
         x, y = index
         self.board[x][y] = P2
 
-        if (x, y) in self.frontier:
-            self.frontier.remove((x, y))
-        for i in range(1, self.k + 1):
-            for neighbour in kNN(x, y, i):
-                if self[neighbour] == BLANK:
-                    self.frontier.add(neighbour)
 
-    def utility(self, p):
-        s = self._toString()
-        val = 0
-        if p == P1:
-            for pattern, val1, _ in KILLS_P2:
-                if re.findall(pattern, s):
-                    return val1
-            for pattern, val1, _ in KILLS_P1:
-                if re.findall(pattern, s):
-                    return val1
-            for pattern, val1, _ in THREATS_P2:
-                if re.findall(pattern, s):
-                    return val1
+    def remove(self, index):
+        """
+        Not a decent method!
+        """
+        x, y = index
+        self.board[x][y] = 0
 
-            for pattern, val1, _ in THREATS_P1+VAL_P1+VAL_P2:
-                val += val1*len(re.findall(pattern, s)) if not math.isnan(val1*len(re.findall(pattern, s))) else 0
+    def localUtility(self, lastMove):
+        x, y = lastMove
+        h = ''.join(map(str, [self.board[x][i] for i in range(0, self.height)]))
+        v = ''.join(map(str, [self.board[i][y] for i in range(0, self.height)]))
 
-        if p == P2:
-            for pattern, _, val2 in KILLS_P1:
-                if re.findall(pattern, s):
-                    return val2
-            for pattern, _, val2 in KILLS_P2:
-                if re.findall(pattern, s):
-                    return val2
-            for pattern, _, val2 in THREATS_P1:
-                if re.findall(pattern, s):
-                    return val2
+        d1 = ''.join(
+            map(str, [self.board[x + i][y + i] for i in range(-min([x, y]), self.width - max(x, y))]))
+        d2 = ''.join(map(str, [self.board[x + i][y - i] for i in
+                               range(-min([x, self.width - y - 1]), min([self.width - x, y + 1]))]))
 
-            for pattern, _, val2 in THREATS_P2+VAL_P1+VAL_P2:
-                val += val2 * len(re.findall(pattern, s)) if not math.isnan(val2*len(re.findall(pattern, s))) else 0
+        s = h+'\n'+v+'\n'+d1+'\n'+d2+'\n'
 
-        return val
+        valP1, valP2 = 0, 0
+        for pattern, val1, val2 in THREATS_P1 + THREATS_P2:
+            valP1 += val1 * len(re.findall(pattern, s))
+            valP2 += val2 * len(re.findall(pattern, s))
+        return valP1, valP2
 
     def toJson(self, filename):
         with open(filename, 'w') as f:
@@ -193,6 +278,15 @@ class Board(object):
                                 if self[neighbour] == BLANK:
                                     self.frontier.add(neighbour)
 
+    def _updateFrontier(self, index):
+        x, y = index
+        if (x, y) in self.frontier:
+            self.frontier.remove((x, y))
+        for i in range(1, self.k + 1):
+            for neighbour in kNN(x, y, i):
+                if self[neighbour] == BLANK:
+                    self.frontier.add(neighbour)
+
     def _display(self):
         # TODO: Visualize it
         print(f'   {" ".join(("%2d" %i for i in range(self.width)))}')
@@ -207,6 +301,21 @@ class Board(object):
                     display[x][y] = 'f'
         for i, row in enumerate(display):
             print(f'{"%-2d"%i} {"  ".join(row)}')
+
+    def _utility(self):
+        s = self._toString()
+        valP1, valP2 = 0, 0
+        for pattern, val1, val2 in THREATS_P1 + THREATS_P2:
+            valP1 += val1 * len(re.findall(pattern, s))
+            valP2 += val2 * len(re.findall(pattern, s))
+
+        return valP1, valP2
+
+    # def _threatSpace(self):
+    #     threat = {'1killing': set(), '1challenging': set(), '2killing': set(), '2challenging': set()}
+    #     h = '\n'.join((''.join((str(_) for _ in line)) for line in self.board))
+    #     v = '\n'.join((''.join((str(self.board[i][j]) for i in range(self.width))) for j in range(self.height)))
+    #     for pattern, _, _, _, _, threatType in THREATS_P1 + THREATS_P2:
 
     def _toString(self):
 
@@ -224,7 +333,7 @@ class Board(object):
 
 class AIPlayer(object):
 
-    MAX_DEPTH = 1
+    MAX_DEPTH = 4
 
     def __init__(self):
         self.p1 = P1
@@ -244,7 +353,7 @@ class AIPlayer(object):
         if depth > self.MAX_DEPTH:
             return True
 
-    def maxValue(self, board, alpha, beta, depth):
+    def maxValue(self, board, alpha, beta, depth, timeStart=None):
         """alpha-beta搜索的max节点
 
         Args:
@@ -258,59 +367,103 @@ class AIPlayer(object):
         """
         # TODO: CODE HERE
         if self.terminalTest(depth):
-            return board.utility(self.p2), (2, 2)
+            return board.value[0], None
 
         val = float('-inf')
 
         action = None
-        frontierLocal = copy.copy(board.frontier)
+        potential = None
+        frontierLocal = tuple(board.frontier)
+        valLocal = board.value
 
-        cases = []
-
+        argList = []
+        # calculate the current value
         for index in frontierLocal:
+            valP1, valP2 = valLocal
+            dvalP1, dvalP2 = board.localUtility(index)
+            valP1 -= dvalP1
+            valP2 -= dvalP2
 
-            boardCopy = Board(width=board.width, height=board.height)
-            boardCopy.board = copy.deepcopy(board.board)
-            boardCopy.frontier = copy.copy(board.frontier)
-            boardCopy.addP1(index)
+            board.addP1(index)
+            dvalP1, dvalP2 = board.localUtility(index)
+            if depth == 0 and dvalP1 > 500000:
+                action = index
+            if depth == 0 and dvalP1 > 50000:
+                potential = index
 
-            # Local pruning
-            valLocal = boardCopy.utility(P1)
+            if abs(valP1) > 500000 or abs(valP2) > 500000:
+                dvalP1 *= 0
+                dvalP2 *= 0
 
-            if valLocal == float('-inf'):
-                continue
+            valP1 += dvalP1
+            valP2 += dvalP2
+            board.remove(index)
 
-            elif valLocal == float('inf'):
-                return valLocal, index
+            if depth == 0:
+                board.addP2(index)
+                dvalP1, dvalP2 = board.localUtility(index)
+                if dvalP1 < -3000*PENALTY:
+                    valP1 += 1000
+                    valP2 += 1000
+                if depth == 0 and dvalP1 < -300000 and not action:
+                    action = index
+                board.remove(index)
 
-            cases.append((valLocal, boardCopy, index))
+            value = (valP1, valP2)
 
-        if len(cases) == 1:
-            return cases[0][0], cases[0][2]
+            argList.append((index, value))
 
-        for _, boardCopy, index in sorted(cases, reverse=False, key=lambda x: x[0]):
-            # print(_, index)
-            moveVal, moveAction = self.minValue(boardCopy, alpha, beta, depth + 1)
+        if depth + 1 > self.MAX_DEPTH:
+            sum = 0
+            for index, value in argList:
+                sum += value[1]
+            return sum/len(argList), action
 
-            if moveVal >= val:
+        argList.sort(key=lambda x: x[1][1], reverse=True)
+        argList = argList[0:min(25//((depth+1)**2), len(argList))]
+
+        if action:
+            return val, action
+
+        if potential:
+            return val, potential
+
+        for index, value in argList:
+
+            if timeStart:
+                gap = time.time() - timeStart
+                if gap > 13:
+                    break
+
+            board.addP1(index)
+            board._updateFrontier(index)
+            board.value = value
+
+            moveVal, moveAction = self.minValue(board, alpha, beta, depth + 1)
+
+            # if depth == 0:
+            #     print(index, moveVal)
+
+
+            board.value = valLocal
+            board.frontier = set(frontierLocal)
+            board.remove(index)
+
+            if moveVal > val:
                 val = moveVal
                 action = index
 
-            # if depth == 0:
-            #     print(val, action)
-                # boardCopy._display()
-
-            if val >= beta:
+            if val > beta:
                 return val, action
 
             alpha = max(alpha, val)
 
         if not action:
-            val = board.utility(self.p2)
+            val = board.value[0]
 
         return val, action
 
-    def minValue(self, board, alpha, beta, depth):
+    def minValue(self, board, alpha, beta, depth, ind=None):
         """alpha-beta搜索的min节点
 
         Args:
@@ -324,53 +477,69 @@ class AIPlayer(object):
         """
         # TODO: CODE HERE
         if self.terminalTest(depth):
-            return board.utility(self.p1), None
+            return board.value[1], None
 
         val = float('inf')
 
         action = None
-        boardLocal = copy.copy(board.board)
-        frontierLocal = copy.copy(board.frontier)
+        frontierLocal = tuple(board.frontier)
+        valLocal = board.value
 
-        cases = []
-
+        argList = []
+        # calculate the current value
         for index in frontierLocal:
+            valP1, valP2 = valLocal
+            dvalP1, dvalP2 = board.localUtility(index)
+            valP1 -= dvalP1
+            valP2 -= dvalP2
 
-            boardCopy = Board(width=board.width, height=board.height)
-            boardCopy.board = copy.deepcopy(board.board)
-            boardCopy.frontier = copy.copy(board.frontier)
-            boardCopy.addP2(index)
+            board.addP2(index)
+            dvalP1, dvalP2 = board.localUtility(index)
+            if abs(valP1) > 500000 or abs(valP2) > 500000:
+                dvalP1 *= 0
+                dvalP2 *= 0
 
-            # Local pruning
-            valLocal = boardCopy.utility(P2)
+            valP1 += dvalP1
+            valP2 += dvalP2
+            board.remove(index)
 
-            board.board = boardLocal
-            board.frontier = frontierLocal
+            value = (valP1, valP2)
 
-            if valLocal == float('inf'):
-                continue
+            argList.append((index, value))
 
-            elif valLocal == float('-inf'):
-                return valLocal, index
+        if depth + 1 > self.MAX_DEPTH:
+            sum = 0
+            for index, value in argList:
+                sum += value[0]
+            return sum/len(argList), action
 
-            cases.append((valLocal, boardCopy, index))
-        if len(cases) == 1:
-            return cases[0][0], cases[0][2]
+        argList.sort(key=lambda x: x[1][0])
+        if depth > 0:
+            argList = argList[0:min(len(argList), 15//((depth+1)**2))]
 
-        for _, boardCopy, index in sorted(cases, reverse=True, key=lambda x: x[0]):
-            moveVal, moveAction = self.maxValue(boardCopy, alpha, beta, depth + 1)
+        for index, value in argList:
 
-            if moveVal <= val:
+            board.addP2(index)
+            board._updateFrontier(index)
+            board.value = value
+
+            moveVal, moveAction = self.maxValue(board, alpha, beta, depth + 1)
+
+            board.value = valLocal
+            board.frontier = set(frontierLocal)
+            board.remove(index)
+
+            if moveVal < val:
                 val = moveVal
                 action = index
 
-            if val <= alpha:
+            if val < alpha:
                 return val, action
 
             beta = min(beta, val)
 
         if not action:
-            val = board.utility(self.p2)
+            val = board.value[1]
 
         return val, action
 
@@ -390,7 +559,8 @@ class AIPlayer(object):
         # TODO: CODE HERE
 
         depth = 0
-        val, action = self.maxValue(board, float('-inf'), float('inf'), depth)
+        timeStart = time.time()
+        val, action = self.maxValue(board, float('-inf'), float('inf'), depth, timeStart)
         return val, action
 
     def getMove(self, board):
@@ -415,10 +585,11 @@ if __name__ == "__main__":
     #                            number=1500)
     # print(t_util, t_numpy, t_tostring)
     # # # FIXME: Deepcopy is too expensive
-    filename = 'C:/Users/Daniel/Desktop/Daniel/projects/FDU-Gomoku-Bot/code/Ver.beta/tmp/pbrain-pydan1.json'
+    filename = 'C:/Users/Daniel/Desktop/Daniel/projects/Gomoku/code/pydan2/board4.json'
     with open(filename, 'r') as f:
         b = json.load(f)
     board = Board(board=b)
-    print(board)
+    board._display()
     ai = AIPlayer()
     print(ai.getMove(board))
+
